@@ -9,16 +9,26 @@ def crawl_page(url):
     """
     returns all URLs found on the page
     """
-    html_page = requests.get(url).text
-    soup = BeautifulSoup(html_page)
-    # soup is an HTML tree object. see APIs in BeautifulSoup docs
     urls = []
-    for link in soup.findAll('a'):
-        href = link.get('href')
-        href = urljoin(url, href)  # to convert relative links to absolute URLs
-        if href.startswith('http'):  # to avoid non http links like mailto, ftp
-            href = href.split('#')[0]  # remove part after '#' from href
-            urls.append(href)
+    try:
+        html_page = requests.get(url).text
+        soup = BeautifulSoup(html_page)
+        # soup is an HTML tree object. see APIs in BeautifulSoup docs
+        for link in soup.findAll('a'):
+            href = link.get('href')
+            # convert relative links to absolute URLs
+            href = urljoin(url, href)
+            if href.startswith('http'):  # avoid non http links like mailto,ftp
+                href = href.split('#')[0]  # remove part after '#' from href
+                urls.append(href)
+    except Exception as e:
+        # wildcard exception catching is usually not preferred but
+        # here we cant afford to break the whole process just because of
+        # some malformed HTML or wrong encoding, or for whatever reason
+
+        # TODO: logging this to stderr would be a better idea
+        print "crawling failed for %s | exception: %s" % (url, e)
+
     return urls
 
 
@@ -54,14 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--limit', type=int, default=10,
                         help="URLs to crawl before stopping")
     args = parser.parse_args()
-    try:
-        url_repo = run(args.seed, args.limit)
-    except requests.exceptions.MissingSchema as e:
-        print e
-    # we can keep catching various exceptions here like above to
-    # give nice n fancy message to end user instead of horrible traceback
-    # exception handling should always be done in a code which is
-    # "closest" to user interface
+    url_repo = run(args.seed, args.limit)
 
     for url in url_repo:
         print url.encode('utf-8')  # required for embedded Unicode chars in URL
